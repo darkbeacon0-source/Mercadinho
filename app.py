@@ -1,9 +1,11 @@
-from flask import Flask, request, redirect, url_for, render_template_string
+from flask import Flask, request, redirect, render_template_string
 import sqlite3
 from datetime import date
+import os
 
 app = Flask(__name__)
-DB = 'mercadinho.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB = os.path.join(BASE_DIR, 'mercadinho.db')
 
 def db():
     con = sqlite3.connect(DB)
@@ -50,9 +52,7 @@ def init_db():
     con.commit(); con.close()
 
 STYLE='''<style>body{font-family:Arial;margin:0;background:#f4f6f8;color:#222}nav{background:#20242a;padding:16px}nav a{color:white;margin-right:20px;text-decoration:none;font-weight:bold}.wrap{max-width:1100px;margin:30px auto;padding:0 15px}.cards{display:flex;gap:15px;flex-wrap:wrap}.card{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 8px #ddd;min-width:180px}table{width:100%;border-collapse:collapse;background:white}th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left}input,select{padding:9px;margin:4px;width:95%;box-sizing:border-box}button,.btn{background:#2563eb;color:white;border:0;padding:10px 14px;border-radius:6px;text-decoration:none;cursor:pointer}.danger{background:#dc2626}.warn{color:#b45309}.ok{color:#15803d}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}</style>'''
-
-BASE='''<!doctype html><html><head><meta charset="utf-8"><title>Mercadinho</title>'''+STYLE+'''</head><body><nav><a href="/">Dashboard</a><a href="/produtos">Produtos</a><a href="/estoque">Estoque</a><a href="/venda">Nova venda</a><a href="/vendas">Vendas</a><a href="/validade">Validades</a></nav><div class="wrap">{{content|safe}}</div></body></html>'''
-
+BASE='''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mercadinho</title>'''+STYLE+'''</head><body><nav><a href="/">Dashboard</a><a href="/produtos">Produtos</a><a href="/estoque">Estoque</a><a href="/venda">Nova venda</a><a href="/vendas">Vendas</a><a href="/validade">Validades</a></nav><div class="wrap">{{content|safe}}</div></body></html>'''
 def page(content): return render_template_string(BASE,content=content)
 
 @app.route('/')
@@ -72,7 +72,6 @@ def produtos():
     return page(f'''<h1>Produtos</h1><a class="btn" href="/produto/novo">+ Cadastrar produto</a><br><br><table><tr><th>Código</th><th>Nome</th><th>Qtd.</th><th>Venda</th><th>Validade</th><th>Ações</th></tr>{trs}</table>''')
 
 FORM='''<h1>{titulo}</h1><form method="post"><div class="grid"><label>Código de barras<input name="codigo" value="{codigo}"></label><label>Nome *<input name="nome" required value="{nome}"></label><label>Categoria<input name="categoria" value="{categoria}"></label><label>Preço de custo<input type="number" step="0.01" name="custo" value="{custo}"></label><label>Preço de venda<input type="number" step="0.01" name="venda" value="{venda}"></label><label>Quantidade<input type="number" name="quantidade" min="0" value="{quantidade}"></label><label>Estoque mínimo<input type="number" name="estoque_minimo" min="0" value="{minimo}"></label><label>Validade<input type="date" name="validade" value="{validade}"></label><label>Fornecedor<input name="fornecedor" value="{fornecedor}"></label></div><button>Salvar</button></form>'''
-
 def form_values(r=None):
     r=r or {}; return FORM.format(titulo='Editar produto' if r else 'Novo produto',codigo=r.get('codigo',''),nome=r.get('nome',''),categoria=r.get('categoria',''),custo=r.get('custo',0),venda=r.get('venda',0),quantidade=r.get('quantidade',0),minimo=r.get('estoque_minimo',0),validade=r.get('validade','') or '',fornecedor=r.get('fornecedor',''))
 
@@ -115,4 +114,5 @@ def validade():
     con=db(); rows=con.execute("SELECT * FROM produtos WHERE validade IS NOT NULL ORDER BY validade").fetchall(); con.close(); hoje=date.today().isoformat(); trs=''.join(f"<tr><td>{r['nome']}</td><td>{r['quantidade']}</td><td>{r['validade']}</td><td class='{('warn' if r['validade']<=hoje else 'ok')}'>{'VENCIDO' if r['validade']<hoje else ('VENCE HOJE' if r['validade']==hoje else 'ATIVO')}</td></tr>" for r in rows); return page(f'<h1>Controle de validade</h1><table><tr><th>Produto</th><th>Qtd.</th><th>Validade</th><th>Status</th></tr>{trs}</table>')
 
 init_db()
-if __name__=='__main__': app.run(debug=True)
+if __name__=='__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
